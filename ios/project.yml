@@ -1,6 +1,7 @@
 name: MagnetPlayer
 options:
   bundleIdPrefix: com.magnetplayer
+  xcodeVersion: "15.4"
   deploymentTarget:
     iOS: "16.0"
   createIntermediateGroups: true
