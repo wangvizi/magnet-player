@@ -48,7 +48,15 @@ final class APIClient {
     private func makeURL(_ path: String) throws -> URL {
         var base = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         if base.hasSuffix("/") { base.removeLast() }
-        guard let url = URL(string: base + path) else { throw APIError.invalidURL }
+        var urlString = base + path
+        // 公网反向代理可能过滤自定义请求头，因此把密钥同时放进 ?apikey= 查询参数，
+        // 确保经由代理（如发布平台）访问时仍能通过认证。HLS 播放路径 (/hls/) 不认证。
+        let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !key.isEmpty && path.hasPrefix("/api/") {
+            let encoded = key.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? key
+            urlString += "?apikey=" + encoded
+        }
+        guard let url = URL(string: urlString) else { throw APIError.invalidURL }
         return url
     }
 

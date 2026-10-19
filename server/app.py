@@ -13,7 +13,7 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel
@@ -174,10 +174,28 @@ app.add_middleware(
 )
 
 
+def _extract_key(request: Request) -> str:
+    """从 X-API-Key 头、Bearer 令牌或 ?apikey= 查询参数中读取密钥。
+
+    公网反向代理（如发布平台）可能过滤自定义请求头，因此额外支持查询参数，
+    保证在代理环境下也能完成认证。
+    """
+    key = request.headers.get("X-API-Key")
+    if key:
+        return key
+    key = request.query_params.get("apikey")
+    if key:
+        return key
+    auth = request.headers.get("Authorization", "")
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip()
+    return ""
+
+
 @app.middleware("http")
 async def api_auth(request, call_next):
     if API_KEY and request.url.path.startswith("/api/"):
-        if request.headers.get("X-API-Key") != API_KEY:
+        if _extract_key(request) != API_KEY:
             return JSONResponse(status_code=401, content={"error": "无效的 API Key"})
     return await call_next(request)
 
