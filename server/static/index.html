@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>磁力播放器 · 测试页</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+<style>
+  :root { --bg:#0f1117; --card:#181b24; --line:#262b38; --txt:#e6e8ee; --dim:#8b93a7; --accent:#4f7cff; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--txt); }
+  .wrap { max-width:860px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { font-size:22px; }
+  .sub { color:var(--dim); font-size:13px; margin-top:-10px; }
+  .bar { display:flex; gap:10px; margin:20px 0; }
+  input { flex:1; padding:12px 14px; background:var(--card); border:1px solid var(--line); border-radius:10px; color:var(--txt); font-size:14px; }
+  button { padding:12px 18px; background:var(--accent); color:#fff; border:none; border-radius:10px; font-size:14px; cursor:pointer; }
+  button.ghost { background:transparent; border:1px solid var(--line); color:var(--txt); }
+  .task { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:12px; }
+  .task .row1 { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .task .name { font-weight:600; word-break:break-all; }
+  .task .status { font-size:12px; color:var(--dim); white-space:nowrap; }
+  .meta { color:var(--dim); font-size:12px; margin-top:6px; }
+  .pbar { height:6px; background:#0a0c12; border-radius:4px; margin-top:10px; overflow:hidden; }
+  .pbar i { display:block; height:100%; background:linear-gradient(90deg,#4f7cff,#7b5cff); width:0; transition:width .4s; }
+  .actions { margin-top:10px; display:flex; gap:8px; }
+  video { width:100%; border-radius:12px; background:#000; margin-top:10px; }
+  .err { color:#ff6b6b; font-size:12px; margin-top:6px; }
+  .done { color:#3ddc84; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>磁力播放器 · 服务器测试页</h1>
+  <p class="sub">粘贴磁力链接 → 等待下载完成 → 点击播放。此页面仅用于测试服务器。</p>
+  <div class="bar">
+    <input id="magnet" placeholder="magnet:?xt=urn:btih:..." />
+    <button onclick="add()">添加任务</button>
+  </div>
+  <div id="list"></div>
+</div>
+
+<script>
+async function add() {
+  const m = document.getElementById('magnet').value.trim();
+  if (!m) return alert('请输入磁力链接');
+  const r = await fetch('/api/task', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({magnet:m}) });
+  if (!r.ok) return alert('添加失败: ' + (await r.text()));
+  document.getElementById('magnet').value = '';
+  refresh();
+}
+
+async function refresh() {
+  const r = await fetch('/api/tasks');
+  const tasks = await r.json();
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+  for (const t of tasks) {
+    const pct = Math.round((t.progress||0)*100);
+    const el = document.createElement('div');
+    el.className = 'task';
+    const st = t.status==='complete' ? `<span class="done">✔ 完成</span>`
+             : t.status==='error' ? '<span class="err">错误</span>'
+             : `<span>${pct}% · ${fmt(t.downloadSpeed)}/s · ${t.numSeeders}种子</span>`;
+    el.innerHTML = `
+      <div class="row1"><span class="name">${esc(t.name||t.gid)}</span><span class="status">${st}</span></div>
+      <div class="meta">${fmt(t.completedLength)} / ${fmt(t.totalLength)} · ${t.status}${t.error?` · <span class="err">${esc(t.error)}</span>`:''}</div>
+      <div class="pbar"><i style="width:${pct}%"></i></div>
+      <div class="actions">
+        ${t.status==='complete' ? `<button onclick="play('${t.gid}')">播放</button>` : ''}
+        <button class="ghost" onclick="del('${t.gid}')">删除</button>
+      </div>
+      <div id="player-${t.gid}"></div>`;
+    list.appendChild(el);
+  }
+  if (!tasks.length) list.innerHTML = '<p style="color:var(--dim)">暂无任务</p>';
+}
+
+async function play(gid) {
+  const r = await fetch(`/api/task/${gid}/play`, { method:'POST' });
+  if (!r.ok) return alert('尚未就绪');
+  const d = await r.json();
+  const holder = document.getElementById('player-'+gid);
+  holder.innerHTML = '';
+  const video = document.createElement('video');
+  video.controls = true; video.autoplay = true;
+  holder.appendChild(video);
+  const url = d.stream_path;
+  if (Hls.isSupported()) {
+    const hls = new Hls(); hls.loadSource(url); hls.attachMedia(video);
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = url;
+  } else {
+    holder.innerHTML = '<p class="err">当前浏览器不支持 HLS 播放</p>';
+  }
+}
+
+async function del(gid) {
+  if (!confirm('删除该任务？')) return;
+  await fetch('/api/task/'+gid, { method:'DELETE' });
+  refresh();
+}
+
+const esc = s => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => { n = n||0; if (n>=1073741824) return (n/1073741824).toFixed(2)+' GB'; if (n>=1048576) return (n/1048576).toFixed(1)+' MB'; if (n>=1024) return (n/1024).toFixed(0)+' KB'; return n+' B'; };
+
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>

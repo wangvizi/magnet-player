@@ -1,0 +1,12 @@
+# 数据与产物
+server/data/
+server/venv/
+*.pyc
+__pycache__/
+
+# macOS / Xcode
+ios/MagnetPlayer.xcodeproj/
+ios/build/
+DerivedData/
+*.xcuserstate
+.DS_Store

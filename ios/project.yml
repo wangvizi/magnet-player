@@ -1,0 +1,41 @@
+name: MagnetPlayer
+options:
+  bundleIdPrefix: com.magnetplayer
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    CODE_SIGN_STYLE: Automatic
+    TARGETED_DEVICE_FAMILY: "1"
+
+targets:
+  MagnetPlayer:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - MagnetPlayer
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.magnetplayer.app
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+    info:
+      path: MagnetPlayer/Info.plist
+      properties:
+        CFBundleDisplayName: 磁力播放器
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        NSLocalNetworkUsageDescription: 用于连接你的磁力播放服务器
