@@ -150,10 +150,21 @@ jobs:
           path: ${{ runner.temp }}/export/*.ipa
           if-no-files-found: error
 
-      - name: 上传 .app（未签名）
+      - name: 打包为 IPA（未签名，供 TrollStore 安装）
+        if: steps.signing.outputs.mode == 'unsigned'
+        shell: bash
+        run: |
+          APP_PATH="$RUNNER_TEMP/derived/Build/Products/Release-iphoneos/MagnetPlayer.app"
+          PAYLOAD="$RUNNER_TEMP/payload/Payload"
+          mkdir -p "$PAYLOAD"
+          cp -R "$APP_PATH" "$PAYLOAD/"
+          cd "$RUNNER_TEMP/payload"
+          zip -qry "$RUNNER_TEMP/MagnetPlayer-unsigned.ipa" Payload
+
+      - name: 上传 IPA（未签名，供 TrollStore 安装）
         if: steps.signing.outputs.mode == 'unsigned'
         uses: actions/upload-artifact@v4
         with:
-          name: MagnetPlayer-unsigned-app
-          path: ${{ runner.temp }}/derived/Build/Products/Release-iphoneos/MagnetPlayer.app
+          name: MagnetPlayer-trollstore-ipa
+          path: ${{ runner.temp }}/MagnetPlayer-unsigned.ipa
           if-no-files-found: error
